@@ -190,10 +190,11 @@ proccessPointer(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 	// get pen info
 	POINTER_PEN_INFO penInfo;
-	result = GetPointerPenInfo(pointerID, &penInfo); assert(result);
+	result = GetPointerPenInfo(pointerID, &penInfo);
 	if (!result) 
 		return false;
 
+#if 0
 	float x, y;
 	x = (float)penInfo.pointerInfo.ptPixelLocation.x;
 	y = (float)penInfo.pointerInfo.ptPixelLocation.y;
@@ -209,6 +210,68 @@ proccessPointer(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	point.x = screenPoint.x;
 	point.y = screenPoint.y;
 	updateStampPoint(hWnd, point);
+#else
+	UINT entitiesCount = 0;
+	UINT pointersCount = 0;
+	GetPointerFramePenInfoHistory(pointerID, &entitiesCount, &pointersCount, NULL);
+	if (entitiesCount > 0 && pointersCount > 0)
+	{
+		static const UINT PenInfoHistoryBufferSize = 128;
+		static POINTER_PEN_INFO PenInfoHistoryBuffer[PenInfoHistoryBufferSize];
+
+		POINTER_PEN_INFO* penInfoHistory = NULL;
+		if (entitiesCount * pointersCount > PenInfoHistoryBufferSize)
+		{
+			penInfoHistory = new POINTER_PEN_INFO[entitiesCount * pointersCount];
+		}
+		else
+		{
+			penInfoHistory = PenInfoHistoryBuffer;
+		}
+
+		GetPointerFramePenInfoHistory(pointerID, &entitiesCount, &pointersCount, penInfoHistory);
+
+		int FrameSkip = (entitiesCount > 64) ? 16 :
+			(entitiesCount > 32) ? 8 :
+			(entitiesCount > 16) ? 4 :
+			(entitiesCount > 8) ? 2 :
+			1;
+		for (int entity = entitiesCount - 1; entity >= 0; entity -= FrameSkip)
+		{
+			POINTER_PEN_INFO* framePenInfo = &(penInfoHistory[entity]);
+			for (UINT pointer = 0; pointer < pointersCount; ++pointer)
+			{
+				const POINTER_PEN_INFO& pi = framePenInfo[pointer];
+
+				if (pi.pointerInfo.pointerId == pointerID)
+				{
+					float x, y;
+					x = (float)pi.pointerInfo.ptPixelLocation.x;
+					y = (float)pi.pointerInfo.ptPixelLocation.y;
+
+					// convert from screen to window
+					POINT screenPoint;
+					screenPoint.x = x;
+					screenPoint.y = y;
+					::ScreenToClient(hWnd, &screenPoint);
+
+					POINTS point;
+					point.x = screenPoint.x;
+					point.y = screenPoint.y;
+					updateStampPoint(hWnd, point);
+				}
+			}
+		}
+
+		if (entitiesCount * pointersCount > PenInfoHistoryBufferSize)
+		{
+			delete[]penInfoHistory;
+		}
+
+		SkipPointerFrameMessages(pointerID);
+	}
+
+#endif
 }
 
 static LRESULT CALLBACK
