@@ -198,9 +198,16 @@ proccessPointer(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	x = (float)penInfo.pointerInfo.ptPixelLocation.x;
 	y = (float)penInfo.pointerInfo.ptPixelLocation.y;
 
+
+	// convert from screen to window
+	POINT screenPoint;
+	screenPoint.x = x;
+	screenPoint.y = y;
+	::ScreenToClient(hWnd, &screenPoint);
+
 	POINTS point;
-	point.x = x;
-	point.y = y;
+	point.x = screenPoint.x;
+	point.y = screenPoint.y;
 	updateStampPoint(hWnd, point);
 }
 
@@ -252,7 +259,7 @@ wndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 		case WM_LBUTTONDOWN:
 		{
-			strokeType = 1;
+			strokeType = STROKE_TYPE_LBUTTON;
 
 			POINTS points = MAKEPOINTS(lParam);
 			updateStampPoint(hWnd, points);
@@ -267,7 +274,7 @@ wndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 		case WM_MOUSEMOVE:
 		{
-			if (strokeType == 1)
+			if (strokeType == STROKE_TYPE_LBUTTON)
 			{
 				POINTS points = MAKEPOINTS(lParam);
 				updateStampPoint(hWnd, points);
@@ -276,7 +283,7 @@ wndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 		case WM_POINTERDOWN:
 		{
-			strokeType = 2;
+			strokeType = STROKE_TYPE_POINTER;
 			proccessPointer(hWnd, message, wParam, lParam);
 			break;
 		}
@@ -288,7 +295,7 @@ wndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 		case WM_POINTERUPDATE:
 		{
-			if (strokeType == 2)
+			if (strokeType == STROKE_TYPE_POINTER)
 			{
 				proccessPointer(hWnd, message, wParam, lParam);
 
