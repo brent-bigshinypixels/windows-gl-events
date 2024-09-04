@@ -416,7 +416,7 @@ registerClass(HINSTANCE instance)
 
 	if (!RegisterClassExW(&wcex))
 	{
-		OutputDebugString(L"RegisterClassExW failed");
+		OutputDebugStringW(L"RegisterClassExW failed");
 		return false;
 	}
 
@@ -438,13 +438,13 @@ createWindow(HINSTANCE instance)
 		window.hndl = CreateWindowW(window.className, window.title, style, 0, 0, window.width, window.height, nullptr, nullptr, instance, nullptr);
 		if (!window.hndl)
 		{
-			OutputDebugString(L"CreateWindowW failed: Can not create window.");
+			OutputDebugStringW(L"CreateWindowW failed: Can not create window.");
 			return false;
 		}
 	}
 	else
 	{
-		OutputDebugString(L"AdjustWindowRect failed: Can not create window.");
+		OutputDebugStringW(L"AdjustWindowRect failed: Can not create window.");
 		return false;
 	}
 
@@ -491,25 +491,25 @@ createContext()
 				window.renderContext = wglCreateContext(window.deviceContext);
 				if (!window.renderContext)
 				{
-					OutputDebugString(L"wglCreateContext failed: Can not create render context.");
+					OutputDebugStringW(L"wglCreateContext failed: Can not create render context.");
 					return false;
 				}
 			}
 			else
 			{
-				OutputDebugString(L"SetPixelFormat failed: Can not create render context.");
+				OutputDebugStringW(L"SetPixelFormat failed: Can not create render context.");
 				return false;
 			}
 		}
 		else
 		{
-			OutputDebugString(L"ChoosePixelFormat failed: Can not create render context.");
+			OutputDebugStringW(L"ChoosePixelFormat failed: Can not create render context.");
 			return false;
 		}
 	}
 	else
 	{
-		OutputDebugString(L"GetDC failed: Can not create device context.");
+		OutputDebugStringW(L"GetDC failed: Can not create device context.");
 		return false;
 	}
 
