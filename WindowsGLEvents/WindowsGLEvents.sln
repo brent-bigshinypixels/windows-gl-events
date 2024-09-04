@@ -7,20 +7,44 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "WindowsGLEvents", "WindowsG
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|ARM = Debug|ARM
+		Debug|ARM64 = Debug|ARM64
 		Debug|x64 = Debug|x64
 		Debug|x86 = Debug|x86
+		Release|ARM = Release|ARM
+		Release|ARM64 = Release|ARM64
 		Release|x64 = Release|x64
 		Release|x86 = Release|x86
+		ReleaseARM|ARM = ReleaseARM|ARM
+		ReleaseARM|ARM64 = ReleaseARM|ARM64
+		ReleaseARM|x64 = ReleaseARM|x64
+		ReleaseARM|x86 = ReleaseARM|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{74C90D1F-6113-4903-8960-ECAECE3B8456}.Debug|ARM.ActiveCfg = Debug|ARM
+		{74C90D1F-6113-4903-8960-ECAECE3B8456}.Debug|ARM.Build.0 = Debug|ARM
+		{74C90D1F-6113-4903-8960-ECAECE3B8456}.Debug|ARM64.ActiveCfg = Debug|ARM64
+		{74C90D1F-6113-4903-8960-ECAECE3B8456}.Debug|ARM64.Build.0 = Debug|ARM64
 		{74C90D1F-6113-4903-8960-ECAECE3B8456}.Debug|x64.ActiveCfg = Debug|x64
 		{74C90D1F-6113-4903-8960-ECAECE3B8456}.Debug|x64.Build.0 = Debug|x64
 		{74C90D1F-6113-4903-8960-ECAECE3B8456}.Debug|x86.ActiveCfg = Debug|Win32
 		{74C90D1F-6113-4903-8960-ECAECE3B8456}.Debug|x86.Build.0 = Debug|Win32
+		{74C90D1F-6113-4903-8960-ECAECE3B8456}.Release|ARM.ActiveCfg = Release|ARM
+		{74C90D1F-6113-4903-8960-ECAECE3B8456}.Release|ARM.Build.0 = Release|ARM
+		{74C90D1F-6113-4903-8960-ECAECE3B8456}.Release|ARM64.ActiveCfg = Release|ARM64
+		{74C90D1F-6113-4903-8960-ECAECE3B8456}.Release|ARM64.Build.0 = Release|ARM64
 		{74C90D1F-6113-4903-8960-ECAECE3B8456}.Release|x64.ActiveCfg = Release|x64
 		{74C90D1F-6113-4903-8960-ECAECE3B8456}.Release|x64.Build.0 = Release|x64
 		{74C90D1F-6113-4903-8960-ECAECE3B8456}.Release|x86.ActiveCfg = Release|Win32
 		{74C90D1F-6113-4903-8960-ECAECE3B8456}.Release|x86.Build.0 = Release|Win32
+		{74C90D1F-6113-4903-8960-ECAECE3B8456}.ReleaseARM|ARM.ActiveCfg = ReleaseARM|ARM
+		{74C90D1F-6113-4903-8960-ECAECE3B8456}.ReleaseARM|ARM.Build.0 = ReleaseARM|ARM
+		{74C90D1F-6113-4903-8960-ECAECE3B8456}.ReleaseARM|ARM64.ActiveCfg = ReleaseARM|ARM64
+		{74C90D1F-6113-4903-8960-ECAECE3B8456}.ReleaseARM|ARM64.Build.0 = ReleaseARM|ARM64
+		{74C90D1F-6113-4903-8960-ECAECE3B8456}.ReleaseARM|x64.ActiveCfg = ReleaseARM|x64
+		{74C90D1F-6113-4903-8960-ECAECE3B8456}.ReleaseARM|x64.Build.0 = ReleaseARM|x64
+		{74C90D1F-6113-4903-8960-ECAECE3B8456}.ReleaseARM|x86.ActiveCfg = ReleaseARM|Win32
+		{74C90D1F-6113-4903-8960-ECAECE3B8456}.ReleaseARM|x86.Build.0 = ReleaseARM|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

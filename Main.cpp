@@ -272,6 +272,8 @@ proccessPointer(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	}
 
 #endif
+
+	return true;
 }
 
 static LRESULT CALLBACK
@@ -282,9 +284,6 @@ wndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	{
 		case WM_PAINT:
 		{
-
-			OutputDebugString(L"HELLO WORLD\n");
-
 			PAINTSTRUCT ps;
 			BeginPaint(hWnd, &ps);
 
@@ -538,7 +537,7 @@ wWinMain(_In_     HINSTANCE hInstance,
 	{
 		wchar_t *title = new wchar_t[10];
 		swprintf_s(title, 10, L"Error %d", err.code);
-		MessageBox(NULL, err.message, title, MB_OK);
+		MessageBoxW(NULL, err.message, title, MB_OK);
 	}
 
 	return err.code;

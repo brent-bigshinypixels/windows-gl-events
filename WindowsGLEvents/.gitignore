@@ -1,2 +1,5 @@
 *.vs
+*.htm
 x64
+ARM
+ARM64
