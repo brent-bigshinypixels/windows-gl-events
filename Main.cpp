@@ -12,25 +12,53 @@ struct {
 	HWND hndl;
 	HDC deviceContext;
 	HGLRC renderContext;
+
+	// variables used switch back and forth between fullscreen
 	int prevX, prevY, width, height, prevWidth, prevHeight, resX, resY;
 	bool fullscreen;
-} window = { L"OpenGL", "OpenGL", L"OpenGL Example", nullptr, nullptr, nullptr, 0, 0, 0, 0, 0, 0, 640, 480, false };
+} window = { L"OpenGLEvents", "OpenGLEvents", L"OpenGL Events Example", nullptr, nullptr, nullptr, 0, 0, 0, 0, 0, 0, 640, 480, false };
 
 #define STROKE_TYPE_NONE 0
 #define STROKE_TYPE_LBUTTON 1
 #define STROKE_TYPE_POINTER 2
 
-static int strokeType = STROKE_TYPE_NONE;
-static POINTS stampPoint;
-static double width;
-static double height;
-static float stampThickness = 10.0f;
+static int _strokeType = STROKE_TYPE_NONE;
+static POINTS _currentStampPoint;
+static double _width;
+static double _height;
+static float STAMP_THICKNESS = 10.0f;
 
 static void
 initializeState()
 {
-	stampPoint.x = window.width*0.5;
-	stampPoint.y = window.height*0.5;
+	_currentStampPoint.x = window.width*0.5;
+	_currentStampPoint.y = window.height*0.5;
+}
+
+static void
+getBoxColor(float* color)
+{
+	if (_strokeType == STROKE_TYPE_LBUTTON)
+	{
+		color[0] = 1.0f;
+		color[1] = 0.0f;
+		color[2] = 0.0f;
+		color[3] = 1.0f;
+	}
+	else if (_strokeType == STROKE_TYPE_POINTER)
+	{
+		color[0] = 0.0f;
+		color[1] = 1.0f;
+		color[2] = 0.0f;
+		color[3] = 1.0f;
+	}
+	else
+	{
+		color[0] = 0.0f;
+		color[1] = 0.0f;
+		color[2] = 1.0f;
+		color[3] = 1.0f;
+	}
 }
 
 static void
@@ -80,30 +108,8 @@ draw()
 	glLoadIdentity();
 
 	float color[4];
-	if (strokeType == STROKE_TYPE_LBUTTON)
-	{
-		color[0] = 1.0f;
-		color[1] = 0.0f;
-		color[2] = 0.0f;
-		color[3] = 1.0f;
-	}
-	else if (strokeType == STROKE_TYPE_POINTER)
-	{
-		color[0] = 0.0f;
-		color[1] = 1.0f;
-		color[2] = 0.0f;
-		color[3] = 1.0f;
-	}
-	else
-	{
-		color[0] = 0.0f;
-		color[1] = 0.0f;
-		color[2] = 1.0f;
-		color[3] = 1.0f;
-	}
-
-
-	drawBox( stampPoint.x, stampPoint.y, stampThickness, color);
+	getBoxColor(color);
+	drawBox(_currentStampPoint.x, _currentStampPoint.y, STAMP_THICKNESS, color);
 }
 
 static void
@@ -141,42 +147,31 @@ static RECT
 getStampRect()
 {
 	RECT rect;
-	rect.left = stampPoint.x - stampThickness;
-	rect.right = stampPoint.x + stampThickness;
-	rect.top = stampPoint.y - stampThickness;
-	rect.bottom = stampPoint.y + stampThickness;
+	rect.left = _currentStampPoint.x - STAMP_THICKNESS;
+	rect.right = _currentStampPoint.x + STAMP_THICKNESS;
+	rect.top = _currentStampPoint.y - STAMP_THICKNESS;
+	rect.bottom = _currentStampPoint.y + STAMP_THICKNESS;
 	return rect;
 }
 
 static void
-damageRect(HWND hWnd, RECT rect )
+updateStampPoint(POINTS point)
 {
-	::InvalidateRect(hWnd, &rect, false);
-	::UpdateWindow(hWnd);
+	_currentStampPoint.x = point.x;
+	_currentStampPoint.y = point.y;
 }
 
 static void
-updateStampPoint(HWND hWnd, POINTS point)
+invalidateStampRect(HWND hWnd)
 {
-	stampPoint.x = point.x;
-	stampPoint.y = point.y;
 	RECT rect = getStampRect();
-	damageRect(hWnd, rect);
-}
-
-
-static void
-updateStampPointNoDamage(HWND hWnd, POINTS point)
-{
-	stampPoint.x = point.x;
-	stampPoint.y = point.y;
+	::InvalidateRect(hWnd, &rect, false);
 }
 
 static void
-damageWindow(HWND hWnd)
+invalidateWindow(HWND hWnd)
 {
 	::InvalidateRect(hWnd, NULL, false);
-	::UpdateWindow(hWnd);
 }
 
 static bool
@@ -200,23 +195,6 @@ proccessPointer(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	if (!result) 
 		return false;
 
-#if 0
-	float x, y;
-	x = (float)penInfo.pointerInfo.ptPixelLocation.x;
-	y = (float)penInfo.pointerInfo.ptPixelLocation.y;
-
-
-	// convert from screen to window
-	POINT screenPoint;
-	screenPoint.x = x;
-	screenPoint.y = y;
-	::ScreenToClient(hWnd, &screenPoint);
-
-	POINTS point;
-	point.x = screenPoint.x;
-	point.y = screenPoint.y;
-	updateStampPoint(hWnd, point);
-#else
 	UINT entitiesCount = 0;
 	UINT pointersCount = 0;
 	GetPointerFramePenInfoHistory(pointerID, &entitiesCount, &pointersCount, NULL);
@@ -242,6 +220,7 @@ proccessPointer(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			(entitiesCount > 16) ? 4 :
 			(entitiesCount > 8) ? 2 :
 			1;
+
 		for (int entity = entitiesCount - 1; entity >= 0; entity -= FrameSkip)
 		{
 			POINTER_PEN_INFO* framePenInfo = &(penInfoHistory[entity]);
@@ -264,11 +243,10 @@ proccessPointer(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 					POINTS point;
 					point.x = screenPoint.x;
 					point.y = screenPoint.y;
-#if 0
-					updateStampPoint(hWnd, point);
-#else
-					updateStampPointNoDamage(hWnd, point);
-#endif
+
+					updateStampPoint(point);
+					invalidateStampRect(hWnd);
+					::UpdateWindow(hWnd);
 				}
 			}
 		}
@@ -280,12 +258,6 @@ proccessPointer(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 		SkipPointerFrameMessages(pointerID);
 	}
-
-#if 1
-	damageWindow(hWnd);
-#endif
-
-#endif
 
 	return true;
 }
@@ -300,16 +272,6 @@ wndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		{
 			PAINTSTRUCT ps;
 			BeginPaint(hWnd, &ps);
-
-			// get the damage region
-			RECT rcPaint;
-			if (!::IsRectEmpty(&ps.rcPaint)) {
-				::CopyRect(&rcPaint, &ps.rcPaint);
-			}
-			else {
-				::GetClientRect(hWnd, &rcPaint);
-			}
-
 			draw();
 			::SwapBuffers(window.deviceContext);
 			EndPaint(hWnd, &ps);
@@ -335,43 +297,49 @@ wndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 		case WM_LBUTTONDOWN:
 		{
-			strokeType = STROKE_TYPE_LBUTTON;
+			_strokeType = STROKE_TYPE_LBUTTON;
 
 			POINTS points = MAKEPOINTS(lParam);
-			updateStampPoint(hWnd, points);
+			updateStampPoint(points);
+			invalidateStampRect(hWnd);
+			::UpdateWindow(hWnd);
 			break;
 		}
 		case WM_LBUTTONUP:
 		{
 			POINTS points = MAKEPOINTS(lParam);
-			updateStampPoint(hWnd, points);
-			strokeType = STROKE_TYPE_NONE;
+			updateStampPoint(points);
+			invalidateStampRect(hWnd);
+			::UpdateWindow(hWnd);
+			_strokeType = STROKE_TYPE_NONE;
 			break;
 		}
 		case WM_MOUSEMOVE:
 		{
-			if (strokeType == STROKE_TYPE_LBUTTON)
+			if (_strokeType == STROKE_TYPE_LBUTTON)
 			{
 				POINTS points = MAKEPOINTS(lParam);
-				updateStampPoint(hWnd, points);
+				updateStampPoint(points);
+				invalidateStampRect(hWnd);
+				::UpdateWindow(hWnd);
 			}
 			break;
 		}
 		case WM_POINTERDOWN:
 		{
-			strokeType = STROKE_TYPE_POINTER;
+			_strokeType = STROKE_TYPE_POINTER;
 			proccessPointer(hWnd, message, wParam, lParam);
 			break;
 		}
 		case WM_POINTERUP:
 		{
 			proccessPointer(hWnd, message, wParam, lParam);
-			strokeType = STROKE_TYPE_NONE;
+			_strokeType = STROKE_TYPE_NONE;
 			break;
 		}
 		case WM_POINTERUPDATE:
 		{
-			if (strokeType == STROKE_TYPE_POINTER)
+			if (_strokeType == STROKE_TYPE_POINTER)
 			{
 				proccessPointer(hWnd, message, wParam, lParam);
 
@@ -384,7 +352,6 @@ wndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			wglDeleteContext(window.renderContext);
 			ReleaseDC(hWnd, window.deviceContext);
 			DestroyWindow(hWnd);
-			/* stop event queue thread */
 			PostQuitMessage(0);
 			break;
 		}
