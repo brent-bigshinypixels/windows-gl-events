@@ -1,30 +1,9 @@
-/*
- *          Copyright 2020, Vitali Baumtrok.
- * Distributed under the Boost Software License, Version 1.0.
- *     (See accompanying file LICENSE or copy at
- *        http://www.boost.org/LICENSE_1_0.txt)
- */
-
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <stdio.h>
 #include <gl/GL.h>
 #include <assert.h>
 #include <iostream>
-
-#define ERR_NONE 0
-#define ERR_REGCLS 1
-#define ERR_CRWIN_AWR 2
-#define ERR_CRWIN 3
-#define ERR_DC 4
-#define ERR_CPF 5
-#define ERR_SPF 6
-#define ERR_RC 7
-
-struct {
-	int code;
-	LPCWSTR message;
-} err = { ERR_NONE, nullptr };
 
 struct {
 	LPCWSTR className;
@@ -48,45 +27,32 @@ static double height;
 static float stampThickness = 10.0f;
 
 static void
-setupState()
+initializeState()
 {
 	stampPoint.x = window.width*0.5;
 	stampPoint.y = window.height*0.5;
 }
 
 static void
-drawLines()
+drawBox( float x, float y, float size, float* color )
 { 
 	float pts[8];
-	pts[0] = stampPoint.x - stampThickness;
-	pts[1] = stampPoint.y - stampThickness;
+	pts[0] = x - size;
+	pts[1] = y - size;
 
-	pts[2] = stampPoint.x + stampThickness;
-	pts[3] = stampPoint.y - stampThickness;
+	pts[2] = x + size;
+	pts[3] = y - size;
 	
-	pts[4] = stampPoint.x + stampThickness;
-	pts[5] = stampPoint.y + stampThickness;
+	pts[4] = x + size;
+	pts[5] = y + size;
 
-	pts[6] = stampPoint.x - stampThickness;
-	pts[7] = stampPoint.y + stampThickness;
+	pts[6] = x - size;
+	pts[7] = y + size;
 
 	glLineWidth(3.0f);
 	glEnableClientState(GL_VERTEX_ARRAY);
 	glVertexPointer(2, GL_FLOAT, 0, pts);
-
-	if ( strokeType == STROKE_TYPE_LBUTTON )
-	{
-		glColor4f(1.0f, 0.0f, 0.0f, 1.0f);
-	}
-	else if (strokeType == STROKE_TYPE_POINTER)
-	{
-		glColor4f(0.0f, 1.0f, 0.0f, 1.0f);
-	}
-	else
-	{
-		glColor4f(0.0f, 0.0f, 0.0f, 1.0f);
-	}
-
+	glColor4fv(color);
 	glDrawArrays(GL_LINE_LOOP, 0, 4);
 	glDisableClientState(GL_VERTEX_ARRAY);
 }
@@ -112,7 +78,32 @@ draw()
 
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
-	drawLines();
+
+	float color[4];
+	if (strokeType == STROKE_TYPE_LBUTTON)
+	{
+		color[0] = 1.0f;
+		color[1] = 0.0f;
+		color[2] = 0.0f;
+		color[3] = 1.0f;
+	}
+	else if (strokeType == STROKE_TYPE_POINTER)
+	{
+		color[0] = 0.0f;
+		color[1] = 1.0f;
+		color[2] = 0.0f;
+		color[3] = 1.0f;
+	}
+	else
+	{
+		color[0] = 0.0f;
+		color[1] = 0.0f;
+		color[2] = 1.0f;
+		color[3] = 1.0f;
+	}
+
+
+	drawBox( stampPoint.x, stampPoint.y, stampThickness, color);
 }
 
 static void
@@ -171,6 +162,21 @@ updateStampPoint(HWND hWnd, POINTS point)
 	stampPoint.y = point.y;
 	RECT rect = getStampRect();
 	damageRect(hWnd, rect);
+}
+
+
+static void
+updateStampPointNoDamage(HWND hWnd, POINTS point)
+{
+	stampPoint.x = point.x;
+	stampPoint.y = point.y;
+}
+
+static void
+damageWindow(HWND hWnd)
+{
+	::InvalidateRect(hWnd, NULL, false);
+	::UpdateWindow(hWnd);
 }
 
 static bool
@@ -258,7 +264,11 @@ proccessPointer(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 					POINTS point;
 					point.x = screenPoint.x;
 					point.y = screenPoint.y;
+#if 0
 					updateStampPoint(hWnd, point);
+#else
+					updateStampPointNoDamage(hWnd, point);
+#endif
 				}
 			}
 		}
@@ -270,6 +280,10 @@ proccessPointer(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 		SkipPointerFrameMessages(pointerID);
 	}
+
+#if 1
+	damageWindow(hWnd);
+#endif
 
 #endif
 
@@ -382,7 +396,7 @@ wndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	return result;
 }
 
-static void
+static bool
 registerClass(HINSTANCE instance)
 {
 	WNDCLASSEXW wcex;
@@ -402,107 +416,104 @@ registerClass(HINSTANCE instance)
 
 	if (!RegisterClassExW(&wcex))
 	{
-		err.code = ERR_REGCLS;
-		err.message = L"RegisterClassExW failed: Can not register window class.";
+		OutputDebugString(L"RegisterClassExW failed");
+		return false;
 	}
+
+	return true;
 }
 
-static void
+static bool
 createWindow(HINSTANCE instance)
 {
-	if (err.code == ERR_NONE)
+	DWORD  style = WS_OVERLAPPEDWINDOW | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
+	RECT rect = { 0, 0, window.resX, window.resY };
+
+	if (AdjustWindowRect(&rect, style, false))
 	{
-		DWORD  style = WS_OVERLAPPEDWINDOW | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
-		RECT rect = { 0, 0, window.resX, window.resY };
+		/* compute window size including border */
+		window.width = rect.right - rect.left;
+		window.height = rect.bottom - rect.top;
 
-		if (AdjustWindowRect(&rect, style, false))
+		window.hndl = CreateWindowW(window.className, window.title, style, 0, 0, window.width, window.height, nullptr, nullptr, instance, nullptr);
+		if (!window.hndl)
 		{
-			/* compute window size including border */
-			window.width = rect.right - rect.left;
-			window.height = rect.bottom - rect.top;
-
-			window.hndl = CreateWindowW(window.className, window.title, style, 0, 0, window.width, window.height, nullptr, nullptr, instance, nullptr);
-			if (!window.hndl)
-			{
-				err.code = ERR_CRWIN;
-				err.message = L"CreateWindowW failed: Can not create window.";
-			}
-		}
-		else
-		{
-			err.code = ERR_CRWIN_AWR;
-			err.message = L"AdjustWindowRect failed: Can not create window.";
+			OutputDebugString(L"CreateWindowW failed: Can not create window.");
+			return false;
 		}
 	}
+	else
+	{
+		OutputDebugString(L"AdjustWindowRect failed: Can not create window.");
+		return false;
+	}
+
+	return true;
 }
 
 static void
 centerWindow()
 {
-	if (err.code == ERR_NONE)
-	{
-		RECT rect;
-		MONITORINFO mi = { sizeof(mi) };
+	RECT rect;
+	MONITORINFO mi = { sizeof(mi) };
 
-		GetMonitorInfo(MonitorFromWindow(window.hndl, MONITOR_DEFAULTTONEAREST), &mi);
-		int x = (mi.rcMonitor.right - mi.rcMonitor.left - window.width) / 2;
-		int y = (mi.rcMonitor.bottom - mi.rcMonitor.top - window.height) / 2;
+	GetMonitorInfo(MonitorFromWindow(window.hndl, MONITOR_DEFAULTTONEAREST), &mi);
+	int x = (mi.rcMonitor.right - mi.rcMonitor.left - window.width) / 2;
+	int y = (mi.rcMonitor.bottom - mi.rcMonitor.top - window.height) / 2;
 
-		SetWindowPos(window.hndl, 0, x, y, 0, 0, SWP_NOZORDER | SWP_NOSIZE | SWP_SHOWWINDOW);
-	}
+	SetWindowPos(window.hndl, 0, x, y, 0, 0, SWP_NOZORDER | SWP_NOSIZE | SWP_SHOWWINDOW);
 }
 
-static void
+static bool
 createContext()
 {
-	if (err.code == ERR_NONE)
+	window.deviceContext = GetDC(window.hndl);
+	if (window.deviceContext)
 	{
-		window.deviceContext = GetDC(window.hndl);
-		if (window.deviceContext)
+		int pixelFormat;
+		PIXELFORMATDESCRIPTOR pixelFormatDesc;
+
+		/* initialize bits to 0 */
+		memset(&pixelFormatDesc, 0, sizeof(PIXELFORMATDESCRIPTOR));
+		pixelFormatDesc.nSize = sizeof(PIXELFORMATDESCRIPTOR);
+		pixelFormatDesc.nVersion = 1;
+		pixelFormatDesc.dwFlags = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
+		pixelFormatDesc.iPixelType = PFD_TYPE_RGBA;
+		pixelFormatDesc.cColorBits = 32;
+		pixelFormatDesc.cAlphaBits = 8;
+		pixelFormatDesc.cDepthBits = 24;
+
+		pixelFormat = ChoosePixelFormat(window.deviceContext, &pixelFormatDesc);
+		if (pixelFormat)
 		{
-			int pixelFormat;
-			PIXELFORMATDESCRIPTOR pixelFormatDesc;
-
-			/* initialize bits to 0 */
-			memset(&pixelFormatDesc, 0, sizeof(PIXELFORMATDESCRIPTOR));
-			pixelFormatDesc.nSize = sizeof(PIXELFORMATDESCRIPTOR);
-			pixelFormatDesc.nVersion = 1;
-			pixelFormatDesc.dwFlags = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
-			pixelFormatDesc.iPixelType = PFD_TYPE_RGBA;
-			pixelFormatDesc.cColorBits = 32;
-			pixelFormatDesc.cAlphaBits = 8;
-			pixelFormatDesc.cDepthBits = 24;
-
-			pixelFormat = ChoosePixelFormat(window.deviceContext, &pixelFormatDesc);
-			if (pixelFormat)
+			if (SetPixelFormat(window.deviceContext, pixelFormat, &pixelFormatDesc))
 			{
-				if (SetPixelFormat(window.deviceContext, pixelFormat, &pixelFormatDesc))
+				window.renderContext = wglCreateContext(window.deviceContext);
+				if (!window.renderContext)
 				{
-					window.renderContext = wglCreateContext(window.deviceContext);
-					if (!window.renderContext)
-					{
-						err.code = ERR_RC;
-						err.message = L"wglCreateContext failed: Can not create render context.";
-					}
-				}
-				else
-				{
-					err.code = ERR_SPF;
-					err.message = L"SetPixelFormat failed: Can not create render context.";
+					OutputDebugString(L"wglCreateContext failed: Can not create render context.");
+					return false;
 				}
 			}
 			else
 			{
-				err.code = ERR_CPF;
-				err.message = L"ChoosePixelFormat failed: Can not create render context.";
+				OutputDebugString(L"SetPixelFormat failed: Can not create render context.");
+				return false;
 			}
 		}
 		else
 		{
-			err.code = ERR_DC;
-			err.message = L"GetDC failed: Can not create device context.";
+			OutputDebugString(L"ChoosePixelFormat failed: Can not create render context.");
+			return false;
 		}
 	}
+	else
+	{
+		OutputDebugString(L"GetDC failed: Can not create device context.");
+		return false;
+	}
+
+	return true;
 }
 
 int APIENTRY
@@ -514,31 +525,28 @@ wWinMain(_In_     HINSTANCE hInstance,
 	UNREFERENCED_PARAMETER(hPrevInstance);
 	UNREFERENCED_PARAMETER(lpCmdLine);
 
-	registerClass(hInstance);
-	createWindow(hInstance);
-	createContext();
-	setupState();
+	if (!registerClass(hInstance))
+		return 1;
 
-	if (err.code == ERR_NONE)
-	{
-		wglMakeCurrent(window.deviceContext, window.renderContext);
-		ShowWindow(window.hndl, nCmdShow);
-		centerWindow();
-		UpdateWindow(window.hndl);
+	if (!createWindow(hInstance))
+		return 1;
 
-		MSG msg;
-		while (GetMessage(&msg, nullptr, 0, 0))
-		{
-			TranslateMessage(&msg);
-			DispatchMessage(&msg);
-		}
-	}
-	else
+	if (!createContext())
+		return 1;
+
+	initializeState();
+
+	wglMakeCurrent(window.deviceContext, window.renderContext);
+	ShowWindow(window.hndl, nCmdShow);
+	centerWindow();
+	UpdateWindow(window.hndl);
+
+	MSG msg;
+	while (GetMessage(&msg, nullptr, 0, 0))
 	{
-		wchar_t *title = new wchar_t[10];
-		swprintf_s(title, 10, L"Error %d", err.code);
-		MessageBoxW(NULL, err.message, title, MB_OK);
+		TranslateMessage(&msg);
+		DispatchMessage(&msg);
 	}
 
-	return err.code;
+	return 0;
 }
