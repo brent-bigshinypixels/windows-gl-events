@@ -18,15 +18,83 @@ struct {
 	bool fullscreen;
 } window = { L"OpenGLEvents", "OpenGLEvents", L"OpenGL Events Example", nullptr, nullptr, nullptr, 0, 0, 0, 0, 0, 0, 640, 480, false };
 
-#define STROKE_TYPE_NONE 0
-#define STROKE_TYPE_LBUTTON 1
-#define STROKE_TYPE_POINTER 2
 
-static int _strokeType = STROKE_TYPE_NONE;
+enum StrokType
+{
+	NONE,
+	LBUTTON,
+	POINTER
+};
+
+static StrokType _strokeType = StrokType::NONE;
 static POINTS _currentStampPoint;
 static double _width;
 static double _height;
 static float STAMP_THICKNESS = 10.0f;
+static HMENU _hMenu = NULL;
+
+//
+// Control over the UpdateWindow logic
+//
+#define ID_STAMP_DAMAGE 9001
+static bool _updateWindowPerEvent = true;
+static const char* DAMAGE_AFTER_EVENT = "&Update After Event";
+static const char* DAMAGE_AFTER_EVENT_HISTORY = "&Update After Event History ";
+
+static const char*
+getUpdateMenuText()
+{
+	return _updateWindowPerEvent ? DAMAGE_AFTER_EVENT : DAMAGE_AFTER_EVENT_HISTORY;
+}
+
+//
+// Control over how we process pointer history events
+//
+#define ID_HISTORY_ALGORITHM 9002
+enum HistoryEventAlgorithm
+{
+	REDUCE,
+	SKIP,
+	PROCESS_ALL
+};
+
+static HistoryEventAlgorithm _historyEventAlgorithm = HistoryEventAlgorithm::REDUCE;
+static const char* REDUCE_HISTORY_EVENTS = "&Reduce History Events";
+static const char* SKIP_HISTORY_EVENTS = "&Skip History Events";
+static const char* PROCESS_ALL_HISTORY_EVENTS = "&Process All History Events"; 
+
+static const char*
+getHistoryAlgorithmMenuText()
+{
+	switch (_historyEventAlgorithm)
+	{
+	case HistoryEventAlgorithm::REDUCE:
+		return REDUCE_HISTORY_EVENTS;
+		break;
+	case HistoryEventAlgorithm::SKIP:
+		return SKIP_HISTORY_EVENTS;
+		break;
+	case HistoryEventAlgorithm::PROCESS_ALL:
+		return PROCESS_ALL_HISTORY_EVENTS;
+		break;
+	};
+}
+
+static void cycleHistoryAlgorithm()
+{
+	switch (_historyEventAlgorithm)
+	{
+	case HistoryEventAlgorithm::REDUCE:
+		_historyEventAlgorithm = HistoryEventAlgorithm::SKIP;
+		break;
+	case HistoryEventAlgorithm::SKIP:
+		_historyEventAlgorithm = HistoryEventAlgorithm::PROCESS_ALL;
+		break;
+	case HistoryEventAlgorithm::PROCESS_ALL:
+		_historyEventAlgorithm = HistoryEventAlgorithm::REDUCE;
+		break;
+	}
+}
 
 static void
 initializeState()
@@ -38,14 +106,14 @@ initializeState()
 static void
 getBoxColor(float* color)
 {
-	if (_strokeType == STROKE_TYPE_LBUTTON)
+	if (_strokeType == StrokType::LBUTTON)
 	{
 		color[0] = 1.0f;
 		color[1] = 0.0f;
 		color[2] = 0.0f;
 		color[3] = 1.0f;
 	}
-	else if (_strokeType == STROKE_TYPE_POINTER)
+	else if (_strokeType == StrokType::POINTER)
 	{
 		color[0] = 0.0f;
 		color[1] = 1.0f;
@@ -215,13 +283,22 @@ proccessPointer(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 		GetPointerFramePenInfoHistory(pointerID, &entitiesCount, &pointersCount, penInfoHistory);
 
-		int FrameSkip = (entitiesCount > 64) ? 16 :
-			(entitiesCount > 32) ? 8 :
-			(entitiesCount > 16) ? 4 :
-			(entitiesCount > 8) ? 2 :
-			1;
+		// Reduce the events processed by skipping events based on the number of events
+		int frameSkip = 1;
+		if (_historyEventAlgorithm == HistoryEventAlgorithm::REDUCE)
+		{
+			frameSkip = (entitiesCount > 64) ? 16 :
+				(entitiesCount > 32) ? 8 :
+				(entitiesCount > 16) ? 4 :
+				(entitiesCount > 8) ? 2 :
+				1;
+		}
 
-		for (int entity = entitiesCount - 1; entity >= 0; entity -= FrameSkip)
+		// We are potentially doing 3 things:
+		// - Reducing the number events by skipping some
+		// - Processing all of the events
+		// - Just processing the first event (skip)
+		for (int entity = entitiesCount - 1; entity >= 0 && _historyEventAlgorithm != HistoryEventAlgorithm::SKIP; entity -= frameSkip)
 		{
 			POINTER_PEN_INFO* framePenInfo = &(penInfoHistory[entity]);
 			for (UINT pointer = 0; pointer < pointersCount; ++pointer)
@@ -246,7 +323,10 @@ proccessPointer(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 					updateStampPoint(point);
 					invalidateStampRect(hWnd);
-					::UpdateWindow(hWnd);
+					if (_updateWindowPerEvent)
+					{
+						::UpdateWindow(hWnd);
+					}
 				}
 			}
 		}
@@ -259,6 +339,11 @@ proccessPointer(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		SkipPointerFrameMessages(pointerID);
 	}
 
+	if (!_updateWindowPerEvent)
+	{
+		::UpdateWindow(hWnd);
+	}
+
 	return true;
 }
 
@@ -268,6 +353,16 @@ wndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	LRESULT result = 0;
 	switch (message)
 	{
+		case WM_CREATE:
+		{
+			_hMenu = ::CreateMenu();
+			HMENU hSubMenu = ::CreatePopupMenu();
+			::AppendMenuA(hSubMenu, MF_STRING, ID_STAMP_DAMAGE, getUpdateMenuText());
+			::AppendMenuA(hSubMenu, MF_STRING, ID_HISTORY_ALGORITHM, getHistoryAlgorithmMenuText());
+			::AppendMenuA(_hMenu, MF_STRING | MF_POPUP, (UINT)hSubMenu, "&Current State");
+			::SetMenu(hWnd, _hMenu);
+			break;
+		}
 		case WM_PAINT:
 		{
 			PAINTSTRUCT ps;
@@ -297,7 +392,7 @@ wndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 		case WM_LBUTTONDOWN:
 		{
-			_strokeType = STROKE_TYPE_LBUTTON;
+			_strokeType = StrokType::LBUTTON;
 
 			POINTS points = MAKEPOINTS(lParam);
 			updateStampPoint(points);
@@ -311,12 +406,12 @@ wndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			updateStampPoint(points);
 			invalidateStampRect(hWnd);
 			::UpdateWindow(hWnd);
-			_strokeType = STROKE_TYPE_NONE;
+			_strokeType = StrokType::NONE;
 			break;
 		}
 		case WM_MOUSEMOVE:
 		{
-			if (_strokeType == STROKE_TYPE_LBUTTON)
+			if (_strokeType == StrokType::LBUTTON)
 			{
 				POINTS points = MAKEPOINTS(lParam);
 				updateStampPoint(points);
@@ -327,19 +422,19 @@ wndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 		case WM_POINTERDOWN:
 		{
-			_strokeType = STROKE_TYPE_POINTER;
+			_strokeType = StrokType::POINTER;
 			proccessPointer(hWnd, message, wParam, lParam);
 			break;
 		}
 		case WM_POINTERUP:
 		{
 			proccessPointer(hWnd, message, wParam, lParam);
-			_strokeType = STROKE_TYPE_NONE;
+			_strokeType = StrokType::NONE;
 			break;
 		}
 		case WM_POINTERUPDATE:
 		{
-			if (_strokeType == STROKE_TYPE_POINTER)
+			if (_strokeType == StrokType::POINTER)
 			{
 				proccessPointer(hWnd, message, wParam, lParam);
 
@@ -354,6 +449,24 @@ wndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			DestroyWindow(hWnd);
 			PostQuitMessage(0);
 			break;
+		}
+		case WM_COMMAND:
+		{
+			switch (LOWORD(wParam))
+			{
+				case ID_STAMP_DAMAGE:
+				{
+					_updateWindowPerEvent = !_updateWindowPerEvent;
+					ModifyMenuA(_hMenu, ID_STAMP_DAMAGE, MF_BYCOMMAND, ID_STAMP_DAMAGE, getUpdateMenuText());
+					break;
+				}
+				case ID_HISTORY_ALGORITHM:
+				{
+					cycleHistoryAlgorithm();
+					ModifyMenuA(_hMenu, ID_HISTORY_ALGORITHM, MF_BYCOMMAND, ID_HISTORY_ALGORITHM, getHistoryAlgorithmMenuText());
+					break;
+				}
+			}
 		}
 		default:
 		{
