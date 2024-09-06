@@ -298,7 +298,7 @@ proccessPointer(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		// - Reducing the number events by skipping some
 		// - Processing all of the events
 		// - Just processing the first event (skip)
-		for (int entity = entitiesCount - 1; entity >= 0 && _historyEventAlgorithm != HistoryEventAlgorithm::SKIP; entity -= frameSkip)
+		for (int entity = entitiesCount - 1; entity >= 0; entity -= frameSkip)
 		{
 			POINTER_PEN_INFO* framePenInfo = &(penInfoHistory[entity]);
 			for (UINT pointer = 0; pointer < pointersCount; ++pointer)
@@ -327,6 +327,9 @@ proccessPointer(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 					{
 						::UpdateWindow(hWnd);
 					}
+
+					if (_historyEventAlgorithm == HistoryEventAlgorithm::SKIP)
+						break;
 				}
 			}
 		}
