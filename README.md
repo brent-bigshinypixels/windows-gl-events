@@ -44,6 +44,10 @@ Call update window after invalidating the rectangle region around each event.
 
 Call update window after all of the events in the history have been processed.
 
+## Hot Keys
+
+The "f" key will toggle on/off full screen
+
 
 
 
