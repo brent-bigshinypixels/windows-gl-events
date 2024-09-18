@@ -133,23 +133,31 @@ static void
 drawBox( float x, float y, float size, float* color )
 { 
 	float pts[8];
+
+	// bottom left
 	pts[0] = x - size;
 	pts[1] = y - size;
 
-	pts[2] = x + size;
-	pts[3] = y - size;
-	
+	// top left
+	pts[2] = x - size;
+	pts[3] = y + size;
+
+	// top right
 	pts[4] = x + size;
 	pts[5] = y + size;
 
-	pts[6] = x - size;
-	pts[7] = y + size;
+	// bottom right
+	pts[6] = x + size;
+	pts[7] = y - size;
 
-	glLineWidth(3.0f);
+	GLubyte indices[] = { 0, 1, 2,
+						  0, 2, 3 };
+
 	glEnableClientState(GL_VERTEX_ARRAY);
 	glVertexPointer(2, GL_FLOAT, 0, pts);
 	glColor4fv(color);
 	glDrawArrays(GL_LINE_LOOP, 0, 4);
+	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_BYTE, indices);
 	glDisableClientState(GL_VERTEX_ARRAY);
 }
 
